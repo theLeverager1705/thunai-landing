@@ -61,7 +61,7 @@ Works with zero network
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 4px 8px; border-radius: 6px; background: #1C2738; color: #C7D0DB">Offline</span>
 </div>
 </div>
-<div style="display: flex; flex-direction: column; gap: 10px; padding: 16px 0">
+<div id="tl" aria-live="polite" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 0; max-height: 360px; overflow-y: auto">
 
 <div style="display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: #172338">
 <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9AA6B5; padding-top: 2px">23:02</span>
@@ -110,12 +110,19 @@ Works with zero network
 
 </div>
 <div style="background: #0B1320; border: 1px solid #2B3A52; border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.5; color: #C7D0DB">
-<span style="color: #F5A524; font-weight: 600">Read-back · </span>“Ondansetron, 4 mg, IV, at 23:07. Confirm?”
+<span style="color: #F5A524; font-weight: 600">Read-back · </span><span id="rb">“Ondansetron, 4 mg, IV, at 23:07. Confirm?”</span>
+<div id="heard" style="margin-top: 6px; color: #9AA6B5; font-size: 12px"></div>
+<div id="confirmRow" style="display: none; gap: 8px; margin-top: 10px">
+<button type="button" id="yesBtn" style="flex: 1; min-height: 44px; border: 0; border-radius: 8px; background: #5BD39A; color: #0B1320; font: 600 14px Inter, sans-serif; cursor: pointer">Confirm</button>
+<button type="button" id="noBtn" style="flex: 1; min-height: 44px; border: 1px solid #344257; border-radius: 8px; background: transparent; color: #E8EDF3; font: 500 14px Inter, sans-serif; cursor: pointer">Discard</button>
 </div>
-<button type="button" style="margin-top: 16px; width: 100%; min-height: 56px; border: 0; border-radius: 28px; background: #F5A524; color: #0B1320; font: 600 16px Inter, sans-serif; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer">
+</div>
+<button type="button" id="ptt" aria-pressed="false" style="touch-action: none; user-select: none; -webkit-user-select: none; margin-top: 16px; width: 100%; min-height: 56px; border: 0; border-radius: 28px; background: #F5A524; color: #0B1320; font: 600 16px Inter, sans-serif; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer">
 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v4"></path></svg>
-Hold to talk
+<span id="pttLabel">Hold to talk</span>
 </button>
+<form id="typeForm" style="display: flex; gap: 8px; margin-top: 10px"><label for="typeIn" style="position: absolute; left: -9999px">Type a note</label><input id="typeIn" placeholder="…or type: gave 4 mg emeset IV" style="flex: 1; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 0 12px; border-radius: 8px; border: 1px solid #344257; background: #0B1320; color: #E8EDF3; font: 14px Inter, sans-serif"><button type="submit" style="min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid #344257; background: #172338; color: #E8EDF3; font: 600 14px Inter, sans-serif; cursor: pointer">Add</button></form>
+<p id="micNote" style="margin: 10px 4px 0; font-size: 11px; line-height: 1.5; color: #9AA6B5">Web demo: uses your browser’s speech recognition (best in Chrome or Edge) and needs mic permission. The Thunai app itself runs fully offline.</p>
 </div>
 </div>
 </section>
@@ -342,5 +349,93 @@ Hold to talk
 </footer>
 
 </div>
+<script>
+(function(){
+  var BRANDS={emeset:'Ondansetron',ondansetron:'Ondansetron',avil:'Pheniramine',pheniramine:'Pheniramine',deriphyllin:'Deriphyllin (etofylline + theophylline)',adrenaline:'Adrenaline',epinephrine:'Adrenaline',paracetamol:'Paracetamol',diclofenac:'Diclofenac',tramadol:'Tramadol',salbutamol:'Salbutamol',asthalin:'Salbutamol',hydrocortisone:'Hydrocortisone',dexamethasone:'Dexamethasone',midazolam:'Midazolam',diazepam:'Diazepam',atropine:'Atropine',aspirin:'Aspirin',ecosprin:'Aspirin',glucose:'Dextrose',dextrose:'Dextrose','normal saline':'Normal saline',saline:'Normal saline',ns:'Normal saline','ringer lactate':'Ringer lactate',rl:'Ringer lactate',oxygen:'Oxygen',o2:'Oxygen',asv:'Anti-snake venom','anti snake venom':'Anti-snake venom'};
+  var NUM={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,hundred:100,'five hundred':500,thousand:1000};
+  var CONFUSABLE={13:30,14:40,15:50,16:60,17:70,18:80,19:90,30:13,40:14,50:15,60:16,70:17,80:18,90:19};
+  var MAX={Ondansetron:{mg:8},Pheniramine:{mg:45},Adrenaline:{mg:1},Paracetamol:{mg:1000,g:1},Diclofenac:{mg:75},Tramadol:{mg:100},Hydrocortisone:{mg:200},Dexamethasone:{mg:8},Midazolam:{mg:10},Diazepam:{mg:10},Atropine:{mg:3},Aspirin:{mg:325},Oxygen:{'L/min':15}};
+  var tl=document.getElementById('tl'),rb=document.getElementById('rb'),heard=document.getElementById('heard'),row=document.getElementById('confirmRow'),ptt=document.getElementById('ptt'),lab=document.getElementById('pttLabel'),note=document.getElementById('micNote');
+  var pending=null;
+  function pad(n){return (n<10?'0':'')+n}
+  function hhmm(d){return pad(d.getHours())+':'+pad(d.getMinutes())}
+  function words2num(t){
+    var U={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19},T={twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+    var W='(?:'+Object.keys(U).concat(Object.keys(T)).join('|')+'|hundred|thousand|a|and)';
+    var re=new RegExp('\\b'+W+'(?:[\\s-]+'+W+')*\\b','g');
+    return t.replace(re,function(ph){
+      var ws=ph.split(/[\s-]+/);while(ws.length&&(ws[0]==='and'||ws[0]==='a'))ws.shift();var lead=ph.slice(0,ph.length-ws.join(' ').length);while(ws.length&&ws[ws.length-1]==='and')ws.pop();if(!ws.length)return ph;
+      var total=0,cur=0,any=false;
+      for(var i=0;i<ws.length;i++){var w=ws[i];
+        if(w==='a'){cur=cur||1;continue}
+        if(w==='and')continue;
+        if(U[w]!==undefined){cur+=U[w];any=true}
+        else if(T[w]!==undefined){cur+=T[w];any=true}
+        else if(w==='hundred'){cur=(cur||1)*100;any=true}
+        else if(w==='thousand'){total+=(cur||1)*1000;cur=0;any=true}}
+      return any?lead+String(total+cur)+(ph.match(/\s+and$/)?' and':''):ph;
+    });
+  }
+  function parse(raw){
+    var t=' '+words2num(raw.toLowerCase()).replace(/[.,]/g,' ')+' ';
+    var when=new Date(),m=t.match(/(\d+)\s*(min|mins|minute|minutes)\s*(back|ago|before)/);
+    if(m) when=new Date(when.getTime()-(+m[1])*60000);
+    var vit=[],bp=t.match(/bp\s*(\d{2,3})\s*(?:by|\/|over)\s*(\d{2,3})/),sp=t.match(/(?:spo2|sats?|saturation)\s*(\d{2,3})/),g=t.match(/gcs\s*(\d{1,2})/),pr=t.match(/(?:pulse|heart rate|hr)\s*(\d{2,3})/);
+    if(bp)vit.push('BP '+bp[1]+'/'+bp[2]); if(sp)vit.push('SpO2 '+sp[1]+'%'); if(pr)vit.push('Pulse '+pr[1]); if(g)vit.push('GCS '+g[1]);
+    if(vit.length) return {t:hhmm(when),text:vit.join(' · '),flags:[],say:vit.join(', ').replace('/',' over ').replace('SpO2','S P O 2')+', at '+hhmm(when)+'. Confirm?'};
+    var drug=null,keys=Object.keys(BRANDS).sort(function(a,b){return b.length-a.length});
+    for(var i=0;i<keys.length;i++){ if(t.indexOf(' '+keys[i]+' ')>-1){drug=BRANDS[keys[i]];break;} }
+    var cann=t.match(/(\d{2})\s*g(?:auge)?\s*(?:iv\s*)?cannula|cannula\s*(\d{2})\s*g/);
+    if(!drug && cann){var site=(t.match(/(left|right)\s*(forearm|hand|arm|elbow|antecubital)/)||[]).slice(1).join(' ');return {t:hhmm(when),text:'IV cannula '+(cann[1]||cann[2])+'G'+(site?', '+site:''),flags:site?[]:['site?'],say:'IV cannula '+(cann[1]||cann[2])+' gauge'+(site?', '+site:'')+', at '+hhmm(when)+'.'+(site?'':' Warning: site missing.')+' Confirm?'}}
+    if(!drug) return {t:hhmm(when),text:raw.trim(),flags:['not recognised'],say:'I did not recognise a drug or procedure. Please repeat.'};
+    var dm=t.match(/(\d+(?:\.\d+)?)\s*(mg|mcg|microgram|g|gram|grams|ml|millilitre|milliliter|l|litre|litres|liter|liters|amp|ampoule|units?)\b/),dose=null,unit=null,flags=[];
+    if(dm){dose=+dm[1];unit=dm[2].replace(/^(microgram)$/,'mcg').replace(/^(gram|grams)$/,'g').replace(/^(millilitre|milliliter)$/,'ml').replace(/^(l|litre|litres|liter|liters)$/,'L').replace(/^ampoule$/,'amp').replace(/^units$/,'unit');}
+    if(drug==='Oxygen'&&unit==='L')unit='L/min';
+    var route=(t.match(/\b(iv|im|sc|subcut|oral|po|neb|nebulised|nebulized|sublingual|sl|face mask|mask|nasal|prongs)\b/)||[])[1]||null;
+    if(route){route={iv:'IV',im:'IM',sc:'SC',subcut:'SC',oral:'oral',po:'oral',neb:'nebulised',nebulised:'nebulised',nebulized:'nebulised',sublingual:'SL',sl:'SL','face mask':'face mask',mask:'face mask',nasal:'nasal prongs',prongs:'nasal prongs'}[route];}
+    if(dose===null) flags.push(/saline|lactate|dextrose/i.test(drug)?'volume?':'dose?');
+    if(!route && drug!=='Oxygen') flags.push('route?');
+    if(dose!==null && CONFUSABLE[dose]) flags.push('check '+dose+' vs '+CONFUSABLE[dose]);
+    if(dose!==null && MAX[drug] && MAX[drug][unit]!==undefined && dose>MAX[drug][unit]) flags.push('above usual max '+MAX[drug][unit]+' '+unit);
+    var text=drug+(dose!==null?' '+dose+' '+unit:'')+(route?' '+route:'');
+    var say=drug+', '+(dose!==null?dose+' '+unit.replace('mg','milligrams').replace('mcg','micrograms').replace('ml','millilitres').replace('L/min','litres per minute')+', ':'')+(route?route+', ':'')+'at '+hhmm(when)+'.'+(flags.length?' Warning: '+flags.join(', ').replace(/\?/g,' missing')+'.':'')+' Confirm?';
+    return {t:hhmm(when),text:text,flags:flags,say:say};
+  }
+  function speak(x){try{speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(x);u.lang='en-IN';speechSynthesis.speak(u)}catch(e){}}
+  function addRow(e,state){
+    var d=document.createElement('div');d.style.cssText='display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#172338';
+    var a=document.createElement('span');a.style.cssText="font-family:'JetBrains Mono',monospace;font-size:12px;color:#9AA6B5;padding-top:2px";a.textContent=e.t;
+    var b=document.createElement('span');b.style.cssText='flex:1;font-size:14px;line-height:1.4';b.textContent=e.text+(e.flags.length?'  ('+e.flags.join(', ')+')':'');
+    var c=document.createElement('span');c.style.cssText='font-size:15px;font-weight:700;color:'+(state==='ok'?'#5BD39A':'#F5A524');c.textContent=state==='ok'?'✓':'!';c.setAttribute('aria-label',state==='ok'?'Confirmed':'Needs confirmation');
+    d.appendChild(a);d.appendChild(b);d.appendChild(c);tl.appendChild(d);tl.scrollTop=tl.scrollHeight;
+  }
+  function handle(text){
+    if(!text||!text.trim())return;
+    heard.textContent='Heard: “'+text.trim()+'”';
+    pending=parse(text);
+    rb.textContent='“'+pending.say+'”';
+    row.style.display=pending.flags.indexOf('not recognised')>-1?'none':'flex';
+    speak(pending.say);
+  }
+  document.getElementById('yesBtn').onclick=function(){if(pending){addRow(pending,pending.flags.length?'warn':'ok');pending=null;row.style.display='none';rb.textContent='Saved. Hold to talk for the next entry.';speak('Saved.')}};
+  document.getElementById('noBtn').onclick=function(){pending=null;row.style.display='none';rb.textContent='Discarded. Hold to talk and say it again.'};
+  document.getElementById('typeForm').onsubmit=function(ev){ev.preventDefault();var i=document.getElementById('typeIn');handle(i.value);i.value=''};
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){lab.textContent='Voice not supported here: type below';ptt.disabled=true;ptt.style.opacity='0.6';note.textContent='This browser has no speech recognition. Open the page in Chrome or Edge to use the mic, or type a note. The Thunai app itself runs fully offline.';return;}
+  var rec=new SR();rec.lang='en-IN';rec.interimResults=true;rec.continuous=true;
+  var finalText='',listening=false;
+  rec.onresult=function(ev){var interim='';for(var i=ev.resultIndex;i<ev.results.length;i++){if(ev.results[i].isFinal)finalText+=ev.results[i][0].transcript+' ';else interim+=ev.results[i][0].transcript}heard.textContent='Listening: “'+(finalText+interim).trim()+'”'};
+  rec.onerror=function(ev){listening=false;lab.textContent='Hold to talk';ptt.setAttribute('aria-pressed','false');
+    if(ev.error==='not-allowed'||ev.error==='service-not-allowed')heard.textContent='Microphone blocked. Allow mic access for this site (lock icon in the address bar), then try again.';
+    else if(ev.error==='no-speech')heard.textContent='Didn’t hear anything. Hold the button while you speak.';
+    else if(ev.error==='network')heard.textContent='Speech service unreachable. Check your connection, or type the note.';
+    else heard.textContent='Mic error: '+ev.error;};
+  rec.onend=function(){if(listening){listening=false}lab.textContent='Hold to talk';ptt.setAttribute('aria-pressed','false');ptt.style.background='#F5A524';if(finalText.trim())handle(finalText);finalText=''};
+  function start(e){e.preventDefault();if(listening)return;speechSynthesis&&speechSynthesis.cancel();finalText='';try{rec.start();listening=true;lab.textContent='Listening… release to stop';ptt.setAttribute('aria-pressed','true');ptt.style.background='#FFC55C';heard.textContent='Listening…'}catch(err){}}
+  function stop(){if(listening){try{rec.stop()}catch(err){}}}
+  ptt.addEventListener('pointerdown',start);ptt.addEventListener('pointerup',stop);ptt.addEventListener('pointerleave',stop);ptt.addEventListener('pointercancel',stop);
+  ptt.addEventListener('keydown',function(e){if((e.key===' '||e.key==='Enter')&&!e.repeat)start(e)});ptt.addEventListener('keyup',function(e){if(e.key===' '||e.key==='Enter')stop()});
+})();
+</script>
 </body>
 </html>
